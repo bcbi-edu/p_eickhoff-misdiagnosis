@@ -1,7 +1,6 @@
 '''
 Created on Jun 22, 2019
 
-@author: cindyli
 '''
 
 ###Takes a list of CUIs that result from /search?string=PT,IN,MIN,PIN&inputType=tty&sabs=RXNORM,USPMG.
@@ -10,13 +9,14 @@ Created on Jun 22, 2019
 ###remove it from the final list
 ###Then go through again and remove USP atoms that are in the same CUI as an RxNorm atom
 
-from basicversion.authentication import Authentication
+# adapted from uts-rest-api samples
+# Authentication.py can be found uts-rest-api
+
+from Authentication import Authentication
 
 import requests
 import simplejson
 import argparse
-import collections
-from collections import OrderedDict
 
 parser = argparse.ArgumentParser(description='process user given parameters')
 parser.add_argument("-k", "--apikey", required = True, dest = "apikey", help = "f0ea53a8-d79a-463f-af1b-24fd82e5b9b3")
@@ -27,11 +27,8 @@ parser.add_argument("-t", "--ttys", required = False, dest="ttys",help = "enter 
 parser.add_argument("-i", "--inputfile", required = False, dest = "inputfile", help = "enter a name for your input file")
 
 
-args = parser.parse_args(["--apikey", "f0ea53a8-d79a-463f-af1b-24fd82e5b9b3"])
+args = parser.parse_args(["--apikey", "<key>"])
 apikey = args.apikey
-#version = args.version
-#outputfile = args.outputfile
-#inputfile = args.inputfile
 sabs = args.sabs
 ttys = args.ttys
 AuthClient = Authentication(apikey) 
@@ -48,33 +45,19 @@ pageCount=1
 auis = {}
 
  
-def rxnorm_get(path,query):
-    r = requests.get(rxnorm+path, params=query)
-    r.encoding = 'utf-8'
-    #print(r.url)
-    return simplejson.loads(r.text)
- 
 def uts_get(path,query, full):
     if full:
         r = requests.get(path, params=query)
         r.encoding = 'utf-8'
-        #print(r.url)
         return simplejson.loads(r.text)
     else:
         r = requests.get(base_uri + path, params=query)
         r.encoding = 'utf-8'
-        #print(r.url)
         try:
             return simplejson.loads(r.text)
         except:
             print("page not found error")
   
-def getSingleIngredientForm(rxcui):
-    path = "/REST/rxcui/"+rxcui+"/related.json?tty=IN"
-    query = {}
-    #print(r.url)
-    results=rxnorm_get(path,query)
-    return results
   
 def retrieveConceptAtoms(cui):
    
@@ -85,114 +68,73 @@ def retrieveConceptAtoms(cui):
     if ttys:
         query["ttys"] = ttys
      
-
-     
     results = uts_get(path,query, False)
     return results
     
-#with open(inputfile, 'r') as f:
-def getParents(line):
+
+def get_link(line):
     cui = line.strip()
     json = retrieveConceptAtoms(cui)
-    #print(json["result"]["relations"])
-    #print(json["result"]["ui"])
     return json["result"]["relations"]
         
     
-def getParList(parURI):
+def get_rel_list(par_uri):
     query = {"ticket":AuthClient.getst(tgt)}
     if sabs:
         query["sabs"] = sabs
     if ttys:
         query["ttys"] = ttys
-    results = uts_get(parURI, query, True)
-    
-    #print(results["result"])
+        
+    results = uts_get(par_uri, query, True)
+
     return results["result"]
-    
-    
-    
 
-def parCUIList(cui):
-    cuiListPar = [cui]
-    cuiListChd = [cui]
-    cuiListSim = [cui]
-    try:
-        #print("kmn")
-        par = getParents(cui)
-        #print("hello")
-        #print(par)
-        #print("bye")
-        
-        if par != "NONE":   
-            atomList = getParList(par)
-            #print(atomList)
-            for atom in atomList:
-                rel = atom.get("relationLabel")
-                if rel == "CHD" or rel == "RN":
-                    auiLink = atom["relatedId"]
-                    query = {"ticket":AuthClient.getst(tgt)}
-                    results = uts_get(auiLink, query, True)
-                    #print(results["result"])
-                    try:             
-                        concept = results["result"]["concept"]
-                    except:
-                        prefAtom = results["result"]["defaultPreferredAtom"]
-                        query = {"ticket":AuthClient.getst(tgt)}
-                        finalResults = uts_get(prefAtom, query, True)
-                        concept = finalResults["result"]["concept"]
-                    conLen = len(concept)
-                    simCUI = concept[conLen - 8:]
-                    if simCUI not in cuiListPar:
-                        cuiListPar.append(simCUI)
-                if rel == "RB" or rel == "PAR":
-                    auiLink = atom["relatedId"]
-                    query = {"ticket":AuthClient.getst(tgt)}
-                    results = uts_get(auiLink, query, True)
-                    #print(results["result"])
-                    try:             
-                        concept = results["result"]["concept"]
-                    except:
-                        prefAtom = results["result"]["defaultPreferredAtom"]
-                        query = {"ticket":AuthClient.getst(tgt)}
-                        finalResults = uts_get(prefAtom, query, True)
-                        concept = finalResults["result"]["concept"]
-                    conLen = len(concept)
-                    simCUI = concept[conLen - 8:]
-                    if simCUI not in cuiListChd:
-                        cuiListChd.append(simCUI)
-                if rel == "RL" or rel == "SY":
-                    auiLink = atom["relatedId"]
-                    query = {"ticket":AuthClient.getst(tgt)}
-                    results = uts_get(auiLink, query, True)
-                    #print(results["result"])
-                    try:             
-                        concept = results["result"]["concept"]
-                    except:
-                        prefAtom = results["result"]["defaultPreferredAtom"]
-                        query = {"ticket":AuthClient.getst(tgt)}
-                        finalResults = uts_get(prefAtom, query, True)
-                        concept = finalResults["result"]["concept"]
-                    conLen = len(concept)
-                    simCUI = concept[conLen - 8:]
-                    if simCUI not in cuiListSim:
-                        cuiListSim.append(simCUI)
-        return cuiListPar, cuiListChd, cuiListSim  
+
+def rel_cui(label, aui_link):
+    
+    query = {"ticket":AuthClient.getst(tgt)}
+    results = uts_get(aui_link, query, True)
+    try:             
+        concept = results["result"]["concept"]
     except:
-        return cuiListPar, cuiListChd, cuiListSim 
+        prefAtom = results["result"]["defaultPreferredAtom"]
+        query = {"ticket":AuthClient.getst(tgt)}
+        finalResults = uts_get(prefAtom, query, True)
+        concept = finalResults["result"]["concept"]
+    
+    con_len = len(concept)
+    simCUI = concept[con_len - 8:]
+    
+    return simCUI    
+    
 
-        
-#C0013153
-#C1700185
+def rel_cui_list(cui):
+    par_list = set([cui])
+    chd_list = set([cui])
+    sim_list = set([cui])
+    
+    try:
+        par = get_link(cui)
+        if par != "NONE":   
+            atomList = get_rel_list(par)
+            for atom in atomList:
+                label = atom.get("relationLabel")
+                aui_link = atom["relatedId"]
+                relative = rel_cui(label, aui_link)
+                if label == "CHD" or label == "RN":
+                    par_list.add(relative)
+                elif label == "PAR" or label == "RB":
+                    chd_list.add(relative)
+                elif label == "SY" or label == "RL":
+                    sim_list.add(relative)
+    except:
+        pass
+    
+    return par_list, chd_list, sim_list
+
         
 def main():
-    #print(simCUIList("C0030581"))
-    #x, y, z = parCUIList("C0030581")
-    #x, y, z = parCUIList("C0001432")
-    x, y, z = parCUIList("C0205642")
-    print(x)
-    print(y)
-    print(z)
+    return 1;
     
 if __name__ == '__main__':
     main()
