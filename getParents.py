@@ -60,7 +60,7 @@ def uts_get(path,query, full):
   
   
 def retrieveConceptAtoms(cui):
-   
+  
     path = "/rest/content/current/CUI/"+cui+"/atoms/preferred"
     query = {"ticket":AuthClient.getst(tgt)}
     if sabs:
