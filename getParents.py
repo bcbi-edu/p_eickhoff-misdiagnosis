@@ -19,7 +19,7 @@ import simplejson
 import argparse
 
 parser = argparse.ArgumentParser(description='process user given parameters')
-parser.add_argument("-k", "--apikey", required = True, dest = "apikey", help = "f0ea53a8-d79a-463f-af1b-24fd82e5b9b3")
+parser.add_argument("-k", "--apikey", required = True, dest = "apikey")
 parser.add_argument("-v", "--version", required =  False, dest="version", default = "current", help = "enter version example-2015AA")
 parser.add_argument("-o", "--outputfile", required = False, dest = "outputfile", help = "enter a name for your output file")
 parser.add_argument("-s", "--sabs", required = False, dest="sabs",help = "enter a comma-separated list of vocabularies, like MSH, SNOMEDCT_US, or RXNORM")
